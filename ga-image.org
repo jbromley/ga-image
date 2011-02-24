@@ -1,0 +1,25 @@
+#+TITLE: ga-image Project Plan
+#+AUTHOR: J. Bromley <jbromley@gmail.com>
+#+DATE: February 23, 2011
+
+* ga-image application						    :PROJECT:
+** Why?
+ - Write a more complicated (than ga-circles) genetic algorithm application
+ - Experiment with structured genomes and the corresponding GA operators
+ - Produce an interesting movie out of the evolution
+ - Gain experience with doing visualizations in Common Lisp
+ - Compare performance to algorithm from [[http://rogeralsing.com/2008/12/07/genetic-programming-evolution-of-mona-lisa/][Genetic Programming:
+   Evolution of Mona Lisa]]
+ - Experiment with use of OpenCV and cl-opencv
+** Outcome
+An application that allows the user to either specify an image or snap
+an image from the video camera. The application will then use a
+genetic algorithm to copy the source image. As the evolution continues
+the best individual from each generation will be shown in the main
+window. If the user desires, a movie of the evolution can also be
+written to disk. The evolution continues until either the fitness hits
+a plateau or the user manually ends evolution. The final image is then
+written to disk with some metrics about its fitness.
+** Brainstorming Ideas
+*** TODO brainstorm ideas for ga-image
+** Plan
