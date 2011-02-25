@@ -11,6 +11,7 @@
  - Compare performance to algorithm from [[http://rogeralsing.com/2008/12/07/genetic-programming-evolution-of-mona-lisa/][Genetic Programming:
    Evolution of Mona Lisa]]
  - Experiment with use of OpenCV and cl-opencv
+
 ** Outcome
 An application that allows the user to either specify an image or snap
 an image from the video camera. The application will then use a
@@ -20,6 +21,45 @@ window. If the user desires, a movie of the evolution can also be
 written to disk. The evolution continues until either the fitness hits
 a plateau or the user manually ends evolution. The final image is then
 written to disk with some metrics about its fitness.
+
 ** Brainstorming Ideas
-*** TODO brainstorm ideas for ga-image
+*** show target image and best individual side-by-side
+*** use opticl or ch-image for drawing
+*** use cl-cairo2 for drawing
+*** point struct to handle points
+*** polygon struct to handle polygons as a number of points
+*** run function has single optional file name parameter
+*** if there is no file name parameter then capture an image from camera
+*** camera capture show on target image half of window
+*** snap image from webcam with space bar
+*** build GUI with SDL or with OpenCV
+*** mutation - add or subtract a small number from target
+*** mutation - give each component a possibility of being mutated
+*** if number of sides is mutated, add or remove points
+*** represent polygons as number of sides and a list of vertices
+Use absolute x, y coordinates
+*** represent polygons as number of sides, origin, and a list of vertices
+**** Use polar coordinates w/ respect to shape origin
+**** mutate by tweaking angles and radii
+*** crossover by switching polygons between parents
+*** have a termination condition
+*** allow manual termination
+*** write a move of the evolution
+*** allow number of polygons as program argument
+*** allow maximum number of polygon sides as a program argument
+*** how do we handle fixing up genomes after crossover/mutation
+*** 
+
 ** Plan
+*** Drawing and data structure basics
+**** TODO create point and polygon structs
+**** TODO create functions for random points and random polygons
+**** TODO test program to draw random polygons with cairo
+**** TODO test program for putting Cairo bits into OpenCV
+**** TODO implement OpenCV functions for image differencing
+*** Representation and operators
+**** TODO experiment with Cartesian and polar representations
+**** TODO design crossover operator
+**** TODO design mutation operator
+*** Frameworks
+**** TODO modify framework from ga-circles for new type of genome
