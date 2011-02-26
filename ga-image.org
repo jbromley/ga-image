@@ -52,14 +52,19 @@ Use absolute x, y coordinates
 
 ** Plan
 *** Drawing and data structure basics
-**** TODO create point and polygon structs
-**** TODO create functions for random points and random polygons
-**** TODO test program to draw random polygons with cairo
+**** DONE create point and polygon structs
+**** DONE create functions for random points and random polygons
+**** DONE create function for random colors
+**** DONE test program to draw random polygons with cairo
+**** TODO figure out how to convert between surface types (memory to screen)
 **** TODO test program for putting Cairo bits into OpenCV
 **** TODO implement OpenCV functions for image differencing
 *** Representation and operators
-**** TODO experiment with Cartesian and polar representations
+**** DONE experiment with Cartesian and polar representations
 **** TODO design crossover operator
 **** TODO design mutation operator
 *** Frameworks
+**** TODO function to create the initial population
+**** TODO function for rank selection
+**** TODO function to drive evolution
 **** TODO modify framework from ga-circles for new type of genome
