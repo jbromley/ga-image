@@ -56,7 +56,14 @@ Use absolute x, y coordinates
 **** DONE create functions for random points and random polygons
 **** DONE create function for random colors
 **** DONE test program to draw random polygons with cairo
-**** TODO figure out how to convert between surface types (memory to screen)
+**** DONE figure out how to convert between surface types (memory to screen)
+ 1. Create an image (in-memory) surface with desired dimensions.
+ 2. Create a context to draw on the image surface.
+ 3. Draw on the image surface.
+ 4. Destroy the image context.
+ 5. Create an xlib context.
+ 6. Use set-source-surface to set the image surface as the source.
+ 7. Call paint on the xlib context.
 **** TODO test program for putting Cairo bits into OpenCV
 **** TODO implement OpenCV functions for image differencing
 *** Representation and operators
