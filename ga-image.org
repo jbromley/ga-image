@@ -48,13 +48,27 @@ Use absolute x, y coordinates
 *** allow number of polygons as program argument
 *** allow maximum number of polygon sides as a program argument
 *** how do we handle fixing up genomes after crossover/mutation
-*** 
 
 ** Plan
 *** Drawing and data structure basics
 **** DONE create point and polygon structs
+The default point is the origin. The default polygon has zero sides
+and no color, i.e. ARGB = (0, 0, 0, 0).
 **** DONE create functions for random points and random polygons
+The =random-point= function creates a point in the region defined by
+(0, 0) and (=*image-width*=, =*image-width*=). Random polygons have
+from three to =*max-sides*= sides and have an optional maximum alpha
+parameter. 
+
+Currently there are two random polygon functions. One simply selects
+all points within the image area. The second selects a random size
+smaller than the image's smallest dimension, selects points in a
+square of this size and then randomly places the polygon such that it
+is guaranteed to be completely within the image.
+**** TODO decide on which polygon function works best
 **** DONE create function for random colors
+I am using the cl-colors package to handle colors. This works well
+with cl-cairo2.
 **** DONE test program to draw random polygons with cairo
 **** DONE figure out how to convert between surface types (memory to screen)
  1. Create an image (in-memory) surface with desired dimensions.
@@ -64,10 +78,39 @@ Use absolute x, y coordinates
  5. Create an xlib context.
  6. Use set-source-surface to set the image surface as the source.
  7. Call paint on the xlib context.
+**** TODO read a reference image into a surface
 **** TODO test program for putting Cairo bits into OpenCV
 **** TODO implement OpenCV functions for image differencing
 *** Representation and operators
 **** DONE experiment with Cartesian and polar representations
+**** TODO calculate the difference between any image and the reference image
+**** TODO design the chromosomes
+Originally, I had thought of directly using the polygon and point
+structes and then writing special genetic operators for this
+representation. However, I have not found much information on whether
+such a representation will work and what the genetic operators would
+look like.
+
+The standard bit-string chromsome might look like the following.
+
+#+BEGIN_SRC javascript
+{ polygons: [{
+    sides: 4,
+    vertices: [{x_0: 10, y_0: 10}, ..., {x_15: 10, y_15: 10}],
+    color: {alpha: 8, red: 8, green: 8, blue: 8}
+  }]
+}
+#+END_SRC
+
+If a polygon can have from three to 18 sides (4 bits) then a polygon
+will have 396 bits (50 bytes). A complete chromosome with 64 polygons
+would then have 21504 bits (3168 bytes). A population of 64
+chromosomes would then require 202,752 bytes.
+
+If we limit a polygon to have from three to ten sides (3 bits), then a
+polygon will have 235 bits (30 bytes). For 64 polygons, this gives us
+a chromosome with 15040 bits (1880 bytes). A population of 64
+chromosomes would require 120320 bytes.
 **** TODO design crossover operator
 **** TODO design mutation operator
 *** Frameworks
