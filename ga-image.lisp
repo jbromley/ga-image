@@ -2,121 +2,181 @@
 
 (in-package #:ga-image)
 
+;;;
+;;; Global parameters
+;;;
 
-;;; global variables
+(defparameter +side-bits+ 3
+  "The number of bits used to represent how many sides in a polygon. This can
+range from three sides to 10 sides.")
 
-(defvar *image-width* 640
-  "Width of the target image.")
+(defparameter +min-sides+ 3
+  "The minimum number of vertices for a polygon.")
 
-(defvar *image-height* 480
-  "Height of the target image.")
+(defparameter +max-sides+ (+ +min-sides+ (1- (expt 2 +side-bits+)))
+  "The maximum number of vertices for a polygon.")
 
-(defvar *max-sides* 8
-  "Maximum number of sides for a polygon.")
+(defparameter +color-bits+ 32
+  "The number of bits to represent RGBA colors.")
 
-(defvar *individual-polygons* 64
-  "The number of polygons that make up an individual in the population.")
+(defparameter +position-bits+ 10
+  "The number of bits in a coordinate component.")
 
-(defvar *population-size* 32
-  "The number of individuals in a population.")
+(defparameter +sides-start+ 0
+  "The bit position for the start of the bits that specify the number
+of sides.")
+
+(defparameter +color-start+ +side-bits+
+  "The bit position for the start of the bits that specify the polygon color.")
+
+(defparameter +vertices-start+ (+ +color-start+ +color-bits+)
+  "The bit position for the start of the vertex bits.")
+
+(defparameter +vertices-end+ (+ +vertices-start+ 
+				(* 2 +max-sides+ +position-bits+))
+  "The bit position for the end of the vertices and the end of a
+  single polygon.")
+
+(defparameter +transparent+ (make-instance 'cl-colors:rgba :alpha 0)
+  "The color for a completely invisible pixel.")
 
 
-
-;;; data structures
+;;;
+;;; Global variables
+;;;
 
-(defstruct point
+(defvar *image-width*
+  "The width of the target image.")
+
+(defvar *image-height*
+  "The height of the target image.")
+
+
+;;;
+;;; Problem definition for the GA engine
+;;;
+
+(defclass image-problem ()
+  ((target-image :initarg :target-image :reader target-image :initform nil)
+   (polygons :initarg :polygons :reader polygons :initform nil)
+   (width :reader width :initform nil)
+   (height :reader height :initform nil))
+  (:documentation "The configuration for the evolving image problem."))
+
+(defmethod initialize-instance :after ((problem image-problem) &rest rest)
+  "Set the instance's WIDTH and HEIGHT slots from the TARGET-IMAGE."
+  ; TODO set instance width and height from target image
+)
+
+(defun make-image-problem (target-image polygons)
+  "Create an instance of IMAGE-PROBLEM with the specified TARGET-IMAGE
+using the number of polygons specified by POLYGONS for the
+reconstruction."
+  (make-instance 'image-problem :target-image target-image :polygons polygons))
+
+(defmethod genome-length ((problem image-problem))
+  "Determine the number of bits require dfor a genome to solve the
+specified image reconstruction problem."
+  (* (polygons problem) 
+     (+ +side-bits+ (* 2 +position-bits+ +max-sides+) +color-bits+)))
+
+(defmethod fitness ((problem image-problem) genome)
+  "The fitness function for the image reconstruction problem is the
+sum of the absolute differences between all channels of all pixels in
+the phenotype from GENOME and the TARGET-IMAGE."
+  ; TODO fitness function
+  0)
+
+(defmethod fitness-comparator ((problem image-problem))
+  "Return a fitness comparator function that takes two genomes and
+  returns T if the first is more fit according to the characteristics of
+  the PROBLEM."
+  (lesser-comparator problem))
+
+(defun solve-image (problem population-size mutation-rate)
+  "Run the GA engine against the PROBLEM."
+  (let* ((gene-pool 
+	  (solve problem population-size mutation-rate
+		 (fitness-terminator problem
+				     (length (target-genome problem)))))
+         (best-genome (most-fit-genome gene-pool (fitness-comparator problem))))
+    (format t "~%Best = ~F~%Average = ~F~%"
+            (fitness problem best-genome)
+            (average-fitness problem gene-pool))))
+
+
+;;; Helper functions for the problem
+
+(defstruct point 
+  "Represents a point in 2-D Cartesian plane."
   (x 0)
   (y 0))
 
 (defstruct polygon
+  "Represents a polygon with the specified number of sides, color and
+list of vertices."
   (sides 3)
-  (vertices '())
-  (color (cl-colors:add-alpha cl-colors:+RED+ 0.5)))
+  (color +transparent+)
+  (vertices '()))
 
+(defun decode-sides (bits)
+  "From BITS, decode the number of sides in this polygon."
+  (+ +min-sides+ (bit-vector->integer bits)))
 
-;;; data structure functions
+(defun bits->color-comp (bits)
+  "Convert BITS from an integer RGBA component in the range 0 to 255
+to a float RGBA component in the range zero to one."
+  (coerce (/ (bit-vector->integer bits) 255) 'float))
 
-(defun translate-point (pt offset)
-  "Translate the point PT by the offset in the point OFFSET."
-  (make-point :x (+ (point-x pt) (point-x offset))
-	      :y (+ (point-y pt) (point-y offset))))
+(defun decode-color (rgba-bits)
+  "From BITS, decode a 32-bit RGBA color."
+  (make-instance 'rgba 
+		 :red (bits->color-comp (subseq rgba-bits 0 8))
+		 :green (bits->color-comp (subseq rgba-bits 8 16))
+		 :blue (bits->color-comp (subseq rgba-bits 16 24))
+		 :alpha (bits->color-comp (subseq rgba-bits 24))))
 
+(defun bits->float (bits max-val)
+  "Convert BITS into a double between 0 and max-val."
+  (* (coerce max-val 'float)
+     (/ (bit-vector->integer bits) (1- (expt 2 (length bits))))))
 
-
-;;; functions to generate random things
+(defun decode-point (bits)
+  "From BITS, decode a point."
+  (make-point :x (bit-vector->integer (subseq bits 0 +position-bits+))
+	      :y (bit-vector->integer (subseq bits +position-bits+))))
 
-(defun random-in-range (min max)
-  "Return a random number between MIN and MAX. MAX must be greater
-  than MIN."
-  (+ min (random (- max min))))
+; TODO decode-vertices feels decidedly non-Lispy.
+(defun decode-vertices (sides bits)
+  "From BITS, decode the polygon with SIDES number of sides."
+  (do ((vertices '())
+       (offset1 0 (+ offset1 (* 2 +position-bits+)))
+       (offset2 +position-bits+ (+ offset2 (* 2 +position-bits+)))
+       (n 0 (1+ n)))
+      ((= n sides) vertices)
+    (let ((x (bit-vector->integer (subseq bits offset1 offset2)))
+	  (y (bit-vector->integer (subseq bits offset2
+					  (+ offset2 +position-bits+)))))
+      (push (make-point :x x :y y) vertices))))
 
-(defun random-in-interval (middle half-width)
-  "Return a random number between MIDDLE - HALF-WIDTH and MIDDLE +
-HALF-WIDTH."
-  (random-in-range (- middle half-width) (+ middle half-width)))
+(defun decode-genome (genome &optional (phenotype '()))
+  "Decode GENOME into a list of colored polygons with between three
+and ten sides."
+  (if (zerop (length genome))
+      phenotype
+      (let* ((sides (decode-sides (subseq genome 0 +color-start+)))
+	     (color (decode-color 
+		     (subseq genome +color-start+ +vertices-start+)))
+	     (vertices (decode-vertices sides 
+		       (subseq genome +vertices-start+ +vertices-end+))))
+	(push (make-polygon :sides sides :color color :vertices vertices)
+	      phenotype)
+	(decode-genome (subseq genome +vertices-end+) phenotype))))
 
-(defun random-angle (&optional (max-angle (* 2 pi)))
-  "Return a random angle between 0 and MAX-ANGLE radians."
-  (random max-angle))
+;;;
+;;; Rendering functions
+;;;
 
-(defun random-point (&optional (max-x *image-width*) (max-y *image-height*))
-  "Create a point at a random location with X between 0 and MAX-X and
-  Y between 0 and MAX-Y."
-  (make-point :x (random max-x) :y (random max-y)))
-
-(defun random-color (&optional (max-alpha 1.0))
-  "Create a random RGBA color with maximum alpha of MAX-ALPHA."
-  (make-instance 'cl-colors:rgba :alpha (random max-alpha) :blue (random 1.0)
-		 :green (random 1.0) :red (random 1.0)))
-
-(defun random-polygon-2 (&optional (max-alpha 1.0) (max-x *image-width*) 
-		       (max-y *image-height*))
-  "Create a random polygon that fits in the area defined by MAX-X and MAX-Y
-and with a maximum alpha given by MAX-ALPHA."
-  (let ((sides (random-in-range 3 *max-sides*))
-	(vertices '()))
-    (dotimes (i sides)
-      (push (make-point :x (random max-x) :y (random max-y)) vertices))
-    (make-polygon :sides sides :vertices vertices 
-		  :color (random-color max-alpha))))
-
-(defun random-polygon (&optional (max-alpha 1.0) (max-x *image-width*)
-			 (max-y *image-height*))
-  "Create a random polygon that fits in the area defined by MAX-X and MAX-Y
-and with a maximum alpha of MAX-ALPHA. This function chooses a size, and then
-generates a random polygon of that size and then adds a random offset such
-that the whole polygon will fit insides the image."
-  (let ((sides (random-in-range 3 *max-sides*))
-	(vertices '())
-	(size (random-in-range 1 (min max-x max-y))))
-    (let ((offset (make-point :x (random (- max-x size))
-			      :y (random (- max-y size)))))
-      (dotimes (i sides)
-	(push (make-point :x (+ (random size) (point-x offset))
-			  :y (+ (random size) (point-y offset))) vertices))
-      (make-polygon :sides sides :vertices vertices
-		    :color (random-color max-alpha)))))
-
-
-
-;;; genetic algorithm functions
-(defun create-individual (&optional (num-polygons *individual-polygons*))
-  "Creates an individual random image composed of NUM-POLYGONS polygons."
-  (let ((individual '()))
-    (dotimes (i num-polygons)
-      (push (random-polygon) individual))
-    individual))
-
-(defun create-initial-population (&optional (population-size *population-size*)
-				  (num-polygons *individual-polygons*))
-  (let ((pop '()))
-    (dotimes (i population-size)
-      (push (create-individual num-polygons) pop))
-    pop))
-
-
-
-;;; rendering functions
 (defun draw-polygon (poly &optional (context cl-cairo2:*context*))
   (let ((v (rest (polygon-vertices poly)))
 	(first-pt (first (polygon-vertices poly))))
