@@ -65,7 +65,11 @@ all points within the image area. The second selects a random size
 smaller than the image's smallest dimension, selects points in a
 square of this size and then randomly places the polygon such that it
 is guaranteed to be completely within the image.
-**** TODO decide on which polygon function works best
+**** DONE decide on which polygon function works best
+It turns out I didn't really need to do this. The original reason I
+did this was that I thought I would generate the starting population
+using these functions. However, it became apparent that I should just
+generate random bit strings and use those for my initial population.
 **** DONE create function for random colors
 I am using the cl-colors package to handle colors. This works well
 with cl-cairo2.
@@ -79,14 +83,15 @@ with cl-cairo2.
  6. Use set-source-surface to set the image surface as the source.
  7. Call paint on the xlib context.
 **** TODO read a reference image into a surface
+**** TODO render a genotype onto a surface
 **** TODO test program for putting Cairo bits into OpenCV
 **** TODO implement OpenCV functions for image differencing
 *** Representation and operators
 **** DONE experiment with Cartesian and polar representations
 **** TODO calculate the difference between any image and the reference image
-**** TODO design the chromosomes
+**** DONE design the chromosomes
 Originally, I had thought of directly using the polygon and point
-structes and then writing special genetic operators for this
+structs and then writing special genetic operators for this
 representation. However, I have not found much information on whether
 such a representation will work and what the genetic operators would
 look like.
@@ -111,10 +116,15 @@ If we limit a polygon to have from three to ten sides (3 bits), then a
 polygon will have 235 bits (30 bytes). For 64 polygons, this gives us
 a chromosome with 15040 bits (1880 bytes). A population of 64
 chromosomes would require 120320 bytes.
+**** TODO calculate schemata for binary bit string vs integer representation
+This task will allow me to know is an integer representation has
+enough information (i.e. schemata) to efficiently do GA.
 **** TODO design crossover operator
 **** TODO design mutation operator
 *** Frameworks
-**** TODO function to create the initial population
+**** DONE function to create the initial population
+I just use random bit strings for the initial population and the
+decoder handles making sense of these bit strings.
 **** TODO function for rank selection
 **** TODO function to drive evolution
 **** TODO modify framework from ga-circles for new type of genome
