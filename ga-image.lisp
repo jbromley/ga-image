@@ -59,20 +59,24 @@ of sides.")
 (defclass image-problem ()
   ((target-image :initarg :target-image :reader target-image :initform nil)
    (polygons :initarg :polygons :reader polygons :initform nil)
-   (width :reader width :initform nil)
-   (height :reader height :initform nil))
+   (width :accessor width :initform nil)
+   (height :accessor height :initform nil))
   (:documentation "The configuration for the evolving image problem."))
 
 (defmethod initialize-instance :after ((problem image-problem) &rest rest)
   "Set the instance's WIDTH and HEIGHT slots from the TARGET-IMAGE."
-  ; TODO set instance width and height from target image
-)
+  (declare (ignore rest))
+  (setf (width problem) (cl-cairo2:image-surface-get-width 
+			 (target-image problem)))
+  (setf (height problem) (cl-cairo2:image-surface-get-height
+			  (target-image problem))))
 
-(defun make-image-problem (target-image polygons)
-  "Create an instance of IMAGE-PROBLEM with the specified TARGET-IMAGE
-using the number of polygons specified by POLYGONS for the
+(defun make-image-problem (image-file polygons)
+  "Create an instance of IMAGE-PROBLEM with the target image read from
+IMAGE-FILE using the number of polygons specified by POLYGONS for the
 reconstruction."
-  (make-instance 'image-problem :target-image target-image :polygons polygons))
+  (let ((surface (cl-cairo2:image-surface-create-from-png image-file)))
+    (make-instance 'image-problem :target-image surface :polygons polygons)))
 
 (defmethod genome-length ((problem image-problem))
   "Determine the number of bits require dfor a genome to solve the
@@ -177,6 +181,11 @@ and ten sides."
 ;;; Rendering functions
 ;;;
 
+(defun load-png (filename)
+  "Load FILENAME into an image surface. The file to be loaded must be
+a PNG file."
+  (cl-cairo2:image-surface-create-from-png filename))
+
 (defun draw-polygon (poly &optional (context cl-cairo2:*context*))
   (let ((v (rest (polygon-vertices poly)))
 	(first-pt (first (polygon-vertices poly))))
@@ -186,3 +195,29 @@ and ten sides."
   (cl-cairo2:close-path context)
   (cl-cairo2:set-source-color (polygon-color poly) context)
   (cl-cairo2:fill-path context))
+
+(defun render-genome-to-surface (problem genome)
+  "Renders the polygons represented by GENOME onto a Cairo image
+surface. Returns the new surface."
+  (let* ((surface (cl-cairo2:create-image-surface :argb32 (width problem)
+						  (height problem)))
+	 (context (cl-cairo2:create-context surface)))
+    (dolist (poly (decode-genome genome))
+      (draw-polygon poly context))
+    (cl-cairo2:destroy context)
+    surface))
+
+(defun render-genome-to-window (problem genome)
+  "Renders the polygons represented by GENOME into a window using
+PROBLEM to provide image size information. Returns the context so it
+can be destroyed later."
+  (let ((surface (render-genome-to-surface problem genome))
+	(context (cl-cairo2:create-xlib-image-context (width problem) 
+						      (height problem))))
+    (cl-cairo2:set-source-surface surface 0 0 context)
+    (cl-cairo2:paint context)
+    (cl-cairo2:destroy surface)
+    context))
+
+
+						 

@@ -82,8 +82,13 @@ with cl-cairo2.
  5. Create an xlib context.
  6. Use set-source-surface to set the image surface as the source.
  7. Call paint on the xlib context.
-**** TODO read a reference image into a surface
-**** TODO render a genotype onto a surface
+**** DONE read a reference image into a surface
+The `load-png` function loads a PNG image into a surface. In the
+future this should be expanded to load standard image types.
+**** DONE render a genotype onto a surface
+The `render-genome-to-surface` draws a genome onto a surface. The
+`render-genome-to-window` renders the genome to a visible window and
+then returns the context for the window.
 **** TODO test program for putting Cairo bits into OpenCV
 **** TODO implement OpenCV functions for image differencing
 *** Representation and operators
