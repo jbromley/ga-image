@@ -89,6 +89,8 @@ future this should be expanded to load standard image types.
 The `render-genome-to-surface` draws a genome onto a surface. The
 `render-genome-to-window` renders the genome to a visible window and
 then returns the context for the window.
+**** TODO figure out how to access image surface data
+**** TODO scale the logical coordinates to image coordinates in decode
 **** TODO test program for putting Cairo bits into OpenCV
 **** TODO implement OpenCV functions for image differencing
 *** Representation and operators
