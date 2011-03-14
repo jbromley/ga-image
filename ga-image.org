@@ -74,6 +74,14 @@ generate random bit strings and use those for my initial population.
 I am using the cl-colors package to handle colors. This works well
 with cl-cairo2.
 **** DONE test program to draw random polygons with cairo
+**** DONE test results of rendering argb32 colors onto an rgb24 surface
+I did a test drawing with 32-bit colors (i.e. ARGB) onto both RGB24
+and ARGB32 surfaces. When drawing on the ARGB32 surface, objects are
+drawn with alpha, and the whole image has an alpha applied to
+it. I.e. the background can be seen through the image. When drawing
+with ARGB colors onto an RGB24 surface, the shapes drawn are drawn
+with alpha blending, but the background is a solid black with no
+transparency.
 **** DONE figure out how to convert between surface types (memory to screen)
  1. Create an image (in-memory) surface with desired dimensions.
  2. Create a context to draw on the image surface.
@@ -89,13 +97,18 @@ future this should be expanded to load standard image types.
 The `render-genome-to-surface` draws a genome onto a surface. The
 `render-genome-to-window` renders the genome to a visible window and
 then returns the context for the window.
-**** TODO figure out how to access image surface data
+**** DONE figure out how to access image surface data
+The `image-surface-get-data` function returns both the image data as a
+vector and a pointer to the data. This means that the initial fitness
+function may just use the returned vector data. If it turns out that
+this is tool slow, I will look into using the data pointer.
 **** TODO scale the logical coordinates to image coordinates in decode
-**** TODO test program for putting Cairo bits into OpenCV
-**** TODO implement OpenCV functions for image differencing
 *** Representation and operators
 **** DONE experiment with Cartesian and polar representations
-**** TODO calculate the difference between any image and the reference image
+**** DONE calculate the difference between any image and the reference image
+Used `image-surface-get-data` to get data pointer for both the target
+image and the candidate image and then simply looped over the bytes
+summing that absolute difference between each pixel component.
 **** DONE design the chromosomes
 Originally, I had thought of directly using the polygon and point
 structs and then writing special genetic operators for this
@@ -123,15 +136,44 @@ If we limit a polygon to have from three to ten sides (3 bits), then a
 polygon will have 235 bits (30 bytes). For 64 polygons, this gives us
 a chromosome with 15040 bits (1880 bytes). A population of 64
 chromosomes would require 120320 bytes.
+**** TODO modify `image-problem` class to store best image at each generation
 **** TODO calculate schemata for binary bit string vs integer representation
 This task will allow me to know is an integer representation has
-enough information (i.e. schemata) to efficiently do GA.
-**** TODO design crossover operator
-**** TODO design mutation operator
-*** Frameworks
+enough information (i.e. schemata) to efficiently do GA. This task may
+be put off to a future version of the GA engine.
+**** TODO return gene pool after GA terminates.
+This will allow analysis or the resulting gene pool.
+*** GA Engine
+This problem uses the GA engine class from 
+[[http://softwarematters.org/ga-engine.html][A Genetic Algorithm Engine]]. There are a number of features lacking in
+this engine. These tasks may eventually be moved to a project to
+improve the GA engine.
 **** DONE function to create the initial population
 I just use random bit strings for the initial population and the
 decoder handles making sense of these bit strings.
 **** TODO function for rank selection
-**** TODO function to drive evolution
-**** TODO modify framework from ga-circles for new type of genome
+The current engine only uses tournament selection. Implement rank
+selection as the default selection method.
+**** TODO allow users to specify type of selection for a GA run
+Initially the options might be tournament, rank, and roulette wheel selection.
+**** TODO implement multi-point crossover
+The current engine only does single-point crossover. Add the
+possbility for multiple-point crossover.
+**** TODO implement elitism
+**** TODO fix the evolution step function
+The current evolution strategy is the following: 
+
+#+BEGIN_QUOTE
+Create a new gene pool of the same size as the specified gene pool by
+replacing half the population with mutated offspring of tournament
+selection winners. The other half of the population consists of the
+parent genomes.
+#+END_QUOTE
+
+Modify this to allow elitism and replace the whole genome (except for
+elites) for every generation.
+**** TODO allow an arbitrary function to be run for each generation
+The current engine only allows client code to request that some simple
+display statistics be shown for each generation. Change this so that a
+custom function can be run for each generation. This will allow things
+like animating the evolution of an organism.
