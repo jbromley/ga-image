@@ -2,6 +2,8 @@
 
 (in-package #:ga-image)
 
+(require :cl-cairo2-xlib)
+
 ;;;
 ;;; Global parameters
 ;;;
@@ -19,7 +21,7 @@ range from three sides to 10 sides.")
 (defparameter +color-bits+ 32
   "The number of bits to represent RGBA colors.")
 
-(defparameter +position-bits+ 10
+(defparameter +position-bits+ 9
   "The number of bits in a coordinate component.")
 
 (defparameter +sides-start+ 0
@@ -42,25 +44,15 @@ of sides.")
 
 
 ;;;
-;;; Global variables
-;;;
-
-(defvar *image-width*
-  "The width of the target image.")
-
-(defvar *image-height*
-  "The height of the target image.")
-
-
-;;;
 ;;; Problem definition for the GA engine
 ;;;
 
 (defclass image-problem ()
   ((target-image :initarg :target-image :reader target-image :initform nil)
-   (polygons :initarg :polygons :reader polygons :initform nil)
-   (width :accessor width :initform nil)
-   (height :accessor height :initform nil))
+   (polygons :reader polygons :initarg :polygons :initform nil)
+   (similarity :reader similarity :initarg :similarity :initform 0.90)
+   (width :accessor width :initarg :width :initform nil)
+   (height :accessor height :initarg :height :initform nil))
   (:documentation "The configuration for the evolving image problem."))
 
 (defmethod initialize-instance :after ((problem image-problem) &rest rest)
@@ -88,8 +80,18 @@ specified image reconstruction problem."
   "The fitness function for the image reconstruction problem is the
 sum of the absolute differences between all channels of all pixels in
 the phenotype from GENOME and the TARGET-IMAGE."
-  ; TODO fitness function
-  0)
+  (let* ((target-ptr (image-surface-get-data (target-image problem) 
+					    :pointer-only t))
+	 (genome-image (render-genome-to-surface problem genome))
+	 (genome-ptr (image-surface-get-data genome-image :pointer-only t))
+	 (bytes (* (width problem) (height problem) 3))
+	 (fitness 0))
+    (do ((index 0 (1+ index)))
+	((= index bytes) nil)
+      (incf fitness (abs (- (cffi:mem-aref target-ptr :uchar index)
+			    (cffi:mem-aref genome-ptr :uchar index)))))
+    (destroy genome-image)
+    fitness))
 
 (defmethod fitness-comparator ((problem image-problem))
   "Return a fitness comparator function that takes two genomes and
@@ -97,16 +99,46 @@ the phenotype from GENOME and the TARGET-IMAGE."
   the PROBLEM."
   (lesser-comparator problem))
 
+(defun run-evolution (filename population-size polygons mutation-rate 
+		      iterations)
+  "Run the GA engine on the image evolution problem. Use a population
+  size POPULATION SIZE with each genome encoding POLYGONS number of
+  polygons. Use a mutation rate of MUTATION-RATE. Only run ITERATIONS
+  times."
+  (let* ((target-image (load-png filename))
+	 (problem (make-instance 'image-problem :polygons polygons 
+				 :target-image target-image)))
+    (let* ((gene-pool 
+	    (solve problem population-size mutation-rate
+		   (generation-terminator iterations)))
+	   (best-genome (most-fit-genome gene-pool 
+					 (fitness-comparator problem))))
+      (format t "~%Best = ~F~%Average = ~F~%"
+	      (fitness problem best-genome)
+	      (average-fitness problem gene-pool))
+      best-genome)))
+  
 (defun solve-image (problem population-size mutation-rate)
   "Run the GA engine against the PROBLEM."
   (let* ((gene-pool 
 	  (solve problem population-size mutation-rate
-		 (fitness-terminator problem
-				     (length (target-genome problem)))))
-         (best-genome (most-fit-genome gene-pool (fitness-comparator problem))))
-    (format t "~%Best = ~F~%Average = ~F~%"
-            (fitness problem best-genome)
-            (average-fitness problem gene-pool))))
+		 (fitness-terminator problem (genome-length problem))))
+	 (best-genome (most-fit-genome gene-pool (fitness-comparator problem))))
+    (format t "~%Best = ~F~%Average = ~F~%" (fitness problem best-genome)
+            (average-fitness problem gene-pool))
+    best-genome))
+
+(defun evolve-image (filename population-size polygons mutation-rate)
+  "Evolve towards the PNG image in FILENAME. Use POPULATION-SIZE as
+  the number of individuals in a gene pool. POLYGONS should be the
+  number of polygons for a single genome. Use MUTATION-RATE for
+  generating mutations."
+  (let* ((target-image (load-png filename))
+	 (problem (make-instance 'image-problem :polygons polygons 
+				 :target-image target-image))
+	 (best-genome (solve-image problem population-size mutation-rate)))
+    (render-genome-to-file problem best-genome)
+    best-genome))
 
 
 ;;; Helper functions for the problem
@@ -199,7 +231,7 @@ a PNG file."
 (defun render-genome-to-surface (problem genome)
   "Renders the polygons represented by GENOME onto a Cairo image
 surface. Returns the new surface."
-  (let* ((surface (cl-cairo2:create-image-surface :argb32 (width problem)
+  (let* ((surface (cl-cairo2:create-image-surface :rgb24 (width problem)
 						  (height problem)))
 	 (context (cl-cairo2:create-context surface)))
     (dolist (poly (decode-genome genome))
@@ -207,6 +239,12 @@ surface. Returns the new surface."
     (cl-cairo2:destroy context)
     surface))
 
+(defun render-genome-to-file (problem genome 
+			      &optional (filename "ga-image.png"))
+  "Renders the polygons represented by GENOME into a PNG file."
+  (cl-cairo2:surface-write-to-png 
+   (render-genome-to-surface problem genome) filename))
+  
 (defun render-genome-to-window (problem genome)
   "Renders the polygons represented by GENOME into a window using
 PROBLEM to provide image size information. Returns the context so it
